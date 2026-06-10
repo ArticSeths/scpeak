@@ -1,0 +1,78 @@
+# ============================================================
+# SCPeak - Despliegue de Producción (Self-Hosted)
+# ============================================================
+#
+# INSTRUCCIONES:
+#   1. Copia este archivo y el .env.prod.example a tu servidor
+#   2. Renombra .env.prod.example → .env
+#   3. Edita .env con tu contraseña de servidor y nombre
+#   4. Ejecuta: docker compose -f docker-compose.prod.yml up -d
+#
+# Puertos que necesitas abrir en tu firewall:
+#   - 3001/tcp  → API (login, salas)
+#   - 7880/tcp  → LiveKit señalización (WebSocket)
+#   - 7881/tcp  → LiveKit fallback TCP
+#   - 7882/udp  → LiveKit voz (UDP)
+#
+# ============================================================
+
+services:
+  # ── API de SCPeak ──
+  scpeak-api:
+    image: scpeak/server:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sc_comms_db}
+      JWT_SECRET: ${JWT_SECRET}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ws://livekit:7880
+      SERVER_NAME: ${SERVER_NAME:-SCPeak Server}
+      SERVER_PASSWORD: ${SERVER_PASSWORD:-}
+      PORT: 3001
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+
+  # ── LiveKit (Motor de Voz) ──
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: >
+      --keys "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+      --redis-address redis:6379
+      --bind 0.0.0.0
+    ports:
+      - "${LIVEKIT_SIGNAL_PORT:-7880}:7880/tcp"
+      - "${LIVEKIT_TCP_PORT:-7881}:7881/tcp"
+      - "${LIVEKIT_UDP_PORT:-7882}:7882/udp"
+    depends_on:
+      - redis
+
+  # ── Redis ──
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  # ── PostgreSQL ──
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sc_comms_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

@@ -1,0 +1,19 @@
+{
+  "name": "scpeak",
+  "version": "0.0.1",
+  "private": true,
+  "description": "StarCitizen Comms App - Voice communication platform",
+  "scripts": {
+    "dev:infra": "docker compose up -d",
+    "dev:server": "pnpm --filter @scpeak/server dev",
+    "dev:client": "pnpm --filter @scpeak/client dev",
+    "dev": "pnpm dev:infra && concurrently -n server,client -c blue,green \"pnpm dev:server\" \"pnpm dev:client\"",
+    "tauri:dev": "pnpm --filter @scpeak/client tauri dev",
+    "db:push": "pnpm --filter @scpeak/server db:push",
+    "db:generate": "pnpm --filter @scpeak/server db:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}

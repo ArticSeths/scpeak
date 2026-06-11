@@ -27,8 +27,11 @@ export function useLiveKit() {
   const isEffectActive = ref(false);
   const error = ref("");
 
-  // Monitor: segunda conexión Room que recibe tu audio desde el servidor
-  let monitorRoom: Room | null = null;
+  // Monitor: loopback local (micrófono → altavoces, sin pasar por LiveKit)
+  let monitorCtx: AudioContext | null = null;
+  let monitorSource: MediaStreamAudioSourceNode | null = null;
+  let monitorGain: GainNode | null = null;
+  let monitorVolume = 1.0; // controlado externamente vía setMonitorVolume
 
   // Procesador de efectos (walkie-talkie) conectado al track nativo
   let effectProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
@@ -234,58 +237,52 @@ export function useLiveKit() {
     await room.value.switchActiveDevice("audiooutput", deviceId);
   }
 
-  async function stopMonitor() {
-    if (monitorRoom) {
-      // Limpiar elementos de audio adjuntados
-      for (const p of monitorRoom.remoteParticipants.values()) {
-        for (const pub of p.audioTrackPublications.values()) {
-          pub.track?.detach().forEach((el) => el.remove());
-        }
-      }
-      await monitorRoom.disconnect();
-      monitorRoom = null;
+  function setMonitorVolume(vol: number) {
+    monitorVolume = vol;
+    if (monitorGain) {
+      monitorGain.gain.value = vol;
+    }
+  }
+
+  function stopMonitor() {
+    monitorSource?.disconnect();
+    monitorGain?.disconnect();
+    monitorSource = null;
+    monitorGain = null;
+    if (monitorCtx) {
+      monitorCtx.close().catch(() => {});
+      monitorCtx = null;
     }
     isMonitoring.value = false;
   }
 
-  async function startMonitor(livekitUrl: string, monitorToken: string) {
+  function startMonitor() {
     if (!room.value) return;
 
     if (isMonitoring.value) {
-      await stopMonitor();
+      stopMonitor();
+      return;
+    }
+
+    const pub = room.value.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const track = pub?.track;
+    if (!track) {
+      error.value = "Activa el micrófono primero para usar el monitor";
       return;
     }
 
     try {
-      monitorRoom = new Room({ adaptiveStream: true, dynacast: true, webAudioMix: true });
+      const mediaStream = new MediaStream([track.mediaStreamTrack]);
+      monitorCtx = new AudioContext();
+      monitorSource = monitorCtx.createMediaStreamSource(mediaStream);
+      monitorGain = monitorCtx.createGain();
+      monitorGain.gain.value = monitorVolume;
 
-      // Adjuntar audio de tracks remotos para que suene
-      monitorRoom.on(
-        RoomEvent.TrackSubscribed,
-        (track) => {
-          if (track.kind === Track.Kind.Audio) {
-            const el = track.attach();
-            el.id = `monitor-audio-${track.sid}`;
-            el.muted = false;
-            el.autoplay = true;
-            el.play().catch(() => {});
-            document.body.appendChild(el);
-          }
-        }
-      );
-
-      monitorRoom.on(
-        RoomEvent.TrackUnsubscribed,
-        (track) => {
-          track.detach().forEach((el) => el.remove());
-        }
-      );
-
-      await monitorRoom.connect(livekitUrl, monitorToken);
+      monitorSource.connect(monitorGain).connect(monitorCtx.destination);
       isMonitoring.value = true;
     } catch (err: any) {
-      console.error("Monitor connect error:", err);
-      monitorRoom = null;
+      error.value = err?.message || "Error al iniciar el monitor";
+      console.error("Monitor error:", err);
     }
   }
 
@@ -340,7 +337,7 @@ export function useLiveKit() {
   }
 
   async function disconnect() {
-    await stopMonitor();
+    stopMonitor();
     stopLocalSpeakingDetection();
     // Limpiar procesador de efectos si existe
     if (effectProcessor) {
@@ -371,5 +368,6 @@ export function useLiveKit() {
     removeEffectProcessor,
     startMonitor,
     stopMonitor,
+    setMonitorVolume,
   };
 }

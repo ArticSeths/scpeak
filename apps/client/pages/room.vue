@@ -164,6 +164,7 @@ const {
   switchOutput,
   startMonitor,
   stopMonitor,
+  setMonitorVolume,
   participants,
   room,
   isConnected: isLkConnected,
@@ -249,21 +250,11 @@ async function toggleEffects() {
 
 async function toggleMonitor() {
   if (isMonitoring.value) {
-    await stopMonitor();
+    stopMonitor();
     return;
   }
 
-  // Pedir token de monitor al servidor (identidad distinta, solo escucha)
-  const res = await $fetch<TokenResponse>(
-    `${serverUrl.value}/rooms/monitor`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${authToken.value}` },
-      body: { roomName: roomName.value },
-    }
-  );
-
-  await startMonitor(livekitUrl.value, res.token);
+  startMonitor();
 }
 
 async function onInputChange(deviceId: string) {
@@ -323,6 +314,7 @@ function onAutoGainChange(value: boolean) {
 
 function onMonitorVolumeChange(value: number) {
   audioSettings.value.monitorVolume = value;
+  setMonitorVolume(value);
 }
 
 function onRadioChange(patch: Partial<typeof audioSettings.value.radio>) {

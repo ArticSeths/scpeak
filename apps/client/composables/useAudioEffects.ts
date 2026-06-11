@@ -33,15 +33,14 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
   let highCut: BiquadFilterNode | null = null;
   let waveshaper: WaveShaperNode | null = null;
   let compressor: DynamicsCompressorNode | null = null;
-  let noiseGate: GainNode | null = null;
   let speakerPeak: BiquadFilterNode | null = null;
   let speakerNotch: BiquadFilterNode | null = null;
   let makeupGain: GainNode | null = null;
 
-  // Generador de estática de radio (ruido blanco muy sutil)
-  let staticSource: AudioBufferSourceNode | null = null;
-  let staticGain: GainNode | null = null;
-  let staticTimer: ReturnType<typeof setInterval> | null = null;
+  // ── Noise Gate real ──
+  let analyser: AnalyserNode | null = null;
+  let gateGain: GainNode | null = null;
+  let gateTimer: ReturnType<typeof setInterval> | null = null;
 
   return {
     name: "walkie-talkie",
@@ -55,15 +54,15 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       const sourceStream = new MediaStream([track]);
       sourceNode = audioContext.createMediaStreamSource(sourceStream);
 
-      // ── 1. Pre-Gain: subir nivel antes de procesar ──
+      // ── 1. Pre-Gain: ligero, sin amplificar el ruido de fondo ──
       preGain = audioContext.createGain();
-      preGain.gain.value = 2.0; // +6 dB
+      preGain.gain.value = 1.2; // +1.5 dB, suficiente para la cadena sin realzar ruido
 
       // ── 2. Band-Pass 300–3000 Hz (rango real de walkie-talkie) ──
       lowCut = audioContext.createBiquadFilter();
       lowCut.type = "highpass";
       lowCut.frequency.value = 300;
-      lowCut.Q.value = 0.6; // pendiente más suave
+      lowCut.Q.value = 0.6;
 
       highCut = audioContext.createBiquadFilter();
       highCut.type = "lowpass";
@@ -75,7 +74,7 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       (waveshaper as any).curve = new Float32Array(makeDistortionCurve(25));
       waveshaper.oversample = "2x";
 
-      // ── 4. Compressor: AGC agresivo como el de una radio real ──
+      // ── 4. Compressor: AGC de radio ──
       compressor = audioContext.createDynamicsCompressor();
       compressor.threshold.value = -36;
       compressor.knee.value = 30;
@@ -83,69 +82,73 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       compressor.attack.value = 0.003;
       compressor.release.value = 0.15;
 
-      // ── 5. Noise Gate: corta ruido de fondo cuando no hablas ──
-      // Se implementa como GainNode modulado desde un analyser (simplificado:
-      // el compressor ya reduce el ruido; el gate lo silencia más)
-      noiseGate = audioContext.createGain();
-      noiseGate.gain.value = 1.0;
+      // ── 5. Noise Gate real ──
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.3;
 
-      // ── 6. Speaker Sim: pequeño altavoz de radio (resonancia ~1.5 kHz) ──
+      gateGain = audioContext.createGain();
+      gateGain.gain.value = 0; // empieza cerrado, se abre al hablar
+
+      const gateThreshold = -55; // dB — por debajo de esto se considera silencio
+      const gateOpenTime = 0.02; // segundos para abrir (ataque rápido)
+      const gateCloseTime = 0.3; // segundos para cerrar (release lento, evita cortes)
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      gateTimer = setInterval(() => {
+        if (!analyser || !gateGain || !audioContext) return;
+        analyser.getByteFrequencyData(dataArray);
+        // Calcular volumen promedio en dB
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / bufferLength;
+        const db = 20 * Math.log10(Math.max(avg, 1) / 255);
+
+        const targetGain = db > gateThreshold ? 1.0 : 0.0;
+        const now = audioContext.currentTime;
+        const rampTime = targetGain > 0.5 ? gateOpenTime : gateCloseTime;
+        gateGain.gain.cancelScheduledValues(now);
+        gateGain.gain.setTargetAtTime(targetGain, now, rampTime / 3);
+      }, 30); // ~33 fps
+
+      // ── 6. Speaker Sim: altavoz pequeño de radio ──
       speakerPeak = audioContext.createBiquadFilter();
       speakerPeak.type = "peaking";
       speakerPeak.frequency.value = 1500;
-      speakerPeak.gain.value = 4; // +4 dB resonancia de altavoz pequeño
+      speakerPeak.gain.value = 2; // +2 dB (reducido de +4)
       speakerPeak.Q.value = 1.5;
 
       speakerNotch = audioContext.createBiquadFilter();
       speakerNotch.type = "notch";
       speakerNotch.frequency.value = 3200;
-      speakerNotch.gain.value = -8; // corte en agudos extremos
+      speakerNotch.gain.value = -8;
       speakerNotch.Q.value = 0.8;
 
-      // ── 7. Makeup Gain: nivel final controlado (no demasiado fuerte) ──
+      // ── 7. Makeup Gain: nivel final controlado ──
       makeupGain = audioContext.createGain();
-      makeupGain.gain.value = 0.7; // −3 dB para no saturar
-
-      // ── Estática de radio (ruido blanco muy sutil de fondo) ──
-      staticGain = audioContext.createGain();
-      staticGain.gain.value = 0.005; // casi inaudible, solo para "color"
-
-      function startStaticNoise() {
-        if (!audioContext || !staticGain || !destNode) return;
-        const bufferSize = audioContext.sampleRate * 2; // 2 segundos
-        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          data[i] = (Math.random() * 2 - 1) * 0.1; // ruido blanco de baja amplitud
-        }
-        const src = audioContext.createBufferSource();
-        src.buffer = buffer;
-        src.loop = true;
-        src.connect(staticGain);
-        src.start();
-        staticSource = src;
-      }
-
-      startStaticNoise();
+      makeupGain.gain.value = 0.7; // −3 dB
 
       // ── Destino ──
       destNode = audioContext.createMediaStreamDestination();
 
-      // ── Encadenar: source → preGain → lowCut → highCut → waveshaper → compressor → noiseGate → speakerPeak → speakerNotch → makeupGain → dest ──
+      // ── Encadenar: source → preGain → lowCut → highCut → waveshaper → compressor → gateGain → speakerPeak → speakerNotch → makeupGain → dest ──
       sourceNode
         .connect(preGain)
         .connect(lowCut)
         .connect(highCut)
         .connect(waveshaper)
         .connect(compressor)
-        .connect(noiseGate)
+        .connect(gateGain)
         .connect(speakerPeak)
         .connect(speakerNotch)
         .connect(makeupGain)
         .connect(destNode);
 
-      // Mezclar estática en el destino
-      staticGain.connect(destNode);
+      // Conectar el analyser ANTES del gate (después del compressor)
+      compressor.connect(analyser);
 
       this.processedTrack = destNode.stream.getAudioTracks()[0];
     },
@@ -156,12 +159,10 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
     },
 
     async destroy() {
-      if (staticTimer) {
-        clearInterval(staticTimer);
-        staticTimer = null;
+      if (gateTimer) {
+        clearInterval(gateTimer);
+        gateTimer = null;
       }
-      staticSource?.stop();
-      staticSource?.disconnect();
 
       sourceNode?.disconnect();
       preGain?.disconnect();
@@ -169,11 +170,11 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       highCut?.disconnect();
       waveshaper?.disconnect();
       compressor?.disconnect();
-      noiseGate?.disconnect();
+      analyser?.disconnect();
+      gateGain?.disconnect();
       speakerPeak?.disconnect();
       speakerNotch?.disconnect();
       makeupGain?.disconnect();
-      staticGain?.disconnect();
       destNode?.disconnect();
 
       this.processedTrack?.stop();
@@ -185,12 +186,11 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       highCut = null;
       waveshaper = null;
       compressor = null;
-      noiseGate = null;
+      analyser = null;
+      gateGain = null;
       speakerPeak = null;
       speakerNotch = null;
       makeupGain = null;
-      staticGain = null;
-      staticSource = null;
       destNode = null;
     },
   };

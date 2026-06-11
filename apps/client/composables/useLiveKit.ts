@@ -124,11 +124,29 @@ export function useLiveKit() {
   }
 
   async function connect(url: string, token: string, inputDeviceId?: string) {
+    // Si el dispositivo guardado ya no existe, ignorarlo y usar el default
+    let deviceId = inputDeviceId;
+    if (deviceId) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const exists = devices.some(
+          (d) => d.kind === "audioinput" && d.deviceId === deviceId,
+        );
+        if (!exists) {
+          console.warn("useLiveKit: dispositivo de entrada no encontrado, usando default");
+          deviceId = undefined;
+        }
+      } catch {
+        // Si no podemos enumerar, usar default
+        deviceId = undefined;
+      }
+    }
+
     try {
       const r = new Room({
         adaptiveStream: true,
         dynacast: true,
-        audioCaptureDefaults: inputDeviceId ? { deviceId: inputDeviceId } : undefined,
+        audioCaptureDefaults: deviceId ? { deviceId } : undefined,
       });
 
       r.on(RoomEvent.ParticipantConnected, updateParticipants);

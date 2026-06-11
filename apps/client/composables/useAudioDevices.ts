@@ -5,14 +5,8 @@ export function useAudioDevices() {
   const selectedOutputId = ref<string>("");
 
   async function enumerate() {
-    // Pedir permiso de micrófono para que se listen los labels
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-    } catch {
-      // Si no da permiso, se listan sin labels
-    }
-
+    // Enumerar sin pedir permiso aún — LiveKit lo hará al conectar.
+    // Si no hay labels es porque el usuario aún no dio permiso de micrófono.
     const devices = await navigator.mediaDevices.enumerateDevices();
     audioInputs.value = devices.filter((d) => d.kind === "audioinput");
     audioOutputs.value = devices.filter((d) => d.kind === "audiooutput");

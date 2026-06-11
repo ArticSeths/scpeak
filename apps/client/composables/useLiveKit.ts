@@ -5,17 +5,20 @@ import {
   createAudioAnalyser,
   LocalAudioTrack,
   type RemoteParticipant,
+  type RemoteTrackPublication,
   type LocalParticipant,
   type TrackProcessor,
   type AudioProcessorOptions,
 } from "livekit-client";
 
-interface Participant {
+export interface Participant {
   identity: string;
   name: string;
   isSpeaking: boolean;
   isMuted: boolean;
   isLocal: boolean;
+  volume: number; // 0–2, 1 = normal
+  isLocallyMuted: boolean; // muteado desde el menú contextual
 }
 
 export function useLiveKit() {
@@ -25,7 +28,12 @@ export function useLiveKit() {
   const isMuted = ref(true);
   const isMonitoring = ref(false);
   const isEffectActive = ref(false);
+  const isDeafened = ref(false);
   const error = ref("");
+
+  // Volumen y mute por participante remoto
+  const participantVolumes = new Map<string, number>();
+  const participantMuted = new Set<string>();
 
   // Monitor: loopback local (micrófono → altavoces, sin pasar por LiveKit)
   let monitorCtx: AudioContext | null = null;
@@ -98,15 +106,16 @@ export function useLiveKit() {
     p: RemoteParticipant | LocalParticipant,
     isLocal: boolean
   ): Participant {
-    const audioTrack = p.audioTrackPublications.values().next().value;
-    const isMuted = audioTrack ? audioTrack.isMuted : true;
+    const pub = p.audioTrackPublications.values().next().value;
+    const muted = pub ? pub.isMuted : true;
     return {
       identity: p.identity,
       name: p.name || p.identity,
-      // Detección local instantánea (sin latencia), pero no mostrar si está muteado
-      isSpeaking: isLocal ? (localSpeaking.value && !isMuted) : p.isSpeaking,
-      isMuted,
+      isSpeaking: isLocal ? (localSpeaking.value && !muted) : p.isSpeaking,
+      isMuted: muted,
       isLocal,
+      volume: participantVolumes.get(p.identity) ?? 1.0,
+      isLocallyMuted: participantMuted.has(p.identity),
     };
   }
 
@@ -329,18 +338,88 @@ export function useLiveKit() {
     isEffectActive.value = false;
   }
 
+  /** Activa/desactiva el deafen: mutea mic + todo el audio remoto */
+  async function toggleDeafen() {
+    isDeafened.value = !isDeafened.value;
+    if (isDeafened.value) {
+      // Mutear micrófono
+      if (!isMuted.value && room.value) {
+        await room.value.localParticipant.setMicrophoneEnabled(false);
+        isMuted.value = true;
+        stopLocalSpeakingDetection();
+      }
+      // Silenciar todo el audio remoto
+      applyDeafenVolumes();
+    } else {
+      restoreDeafenVolumes();
+    }
+    updateParticipants();
+  }
+
+  function applyDeafenVolumes() {
+    if (!room.value) return;
+    for (const [, pub] of getRemoteAudioPublications()) {
+      pub.setVolume(0);
+    }
+  }
+
+  function restoreDeafenVolumes() {
+    if (!room.value) return;
+    for (const [identity, pub] of getRemoteAudioPublications()) {
+      if (participantMuted.has(identity)) {
+        pub.setVolume(0);
+      } else {
+        pub.setVolume(participantVolumes.get(identity) ?? 1.0);
+      }
+    }
+  }
+
+  function setParticipantVolume(identity: string, volume: number) {
+    participantVolumes.set(identity, volume);
+    if (room.value && !isDeafened.value && !participantMuted.has(identity)) {
+      const p = room.value.remoteParticipants.get(identity);
+      const pub = p?.audioTrackPublications.values().next().value;
+      if (pub) pub.setVolume(volume);
+    }
+    updateParticipants();
+  }
+
+  function toggleParticipantMute(identity: string) {
+    if (participantMuted.has(identity)) {
+      participantMuted.delete(identity);
+    } else {
+      participantMuted.add(identity);
+    }
+    if (room.value && !isDeafened.value) {
+      const p = room.value.remoteParticipants.get(identity);
+      const pub = p?.audioTrackPublications.values().next().value;
+      if (pub) pub.setVolume(participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0));
+    }
+    updateParticipants();
+  }
+
+  /** Itera publicaciones de audio remotas (identidad, publicación) */
+  function* getRemoteAudioPublications(): Generator<[string, RemoteTrackPublication]> {
+    if (!room.value) return;
+    for (const p of room.value.remoteParticipants.values()) {
+      for (const pub of p.audioTrackPublications.values()) {
+        yield [p.identity, pub];
+      }
+    }
+  }
+
   async function disconnect() {
     stopMonitor();
     stopLocalSpeakingDetection();
-    // Limpiar procesador de efectos si existe
-    if (effectProcessor) {
-      await removeEffectProcessor();
-    }
+    if (effectProcessor) await removeEffectProcessor();
     if (room.value) {
       await room.value.disconnect();
       room.value = null;
     }
+    participantVolumes.clear();
+    participantMuted.clear();
     isConnected.value = false;
+    isDeafened.value = false;
     participants.value = [];
   }
 
@@ -351,10 +430,14 @@ export function useLiveKit() {
     isMuted,
     isMonitoring,
     isEffectActive,
+    isDeafened,
     error,
     connect,
     disconnect,
     toggleMute,
+    toggleDeafen,
+    setParticipantVolume,
+    toggleParticipantMute,
     switchInput,
     switchOutput,
     setEffectProcessor,

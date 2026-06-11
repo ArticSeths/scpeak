@@ -29,21 +29,28 @@
       <div
         v-for="p in participants"
         :key="p.identity"
-        class="flex flex-col items-center gap-2 p-4 rounded-lg border transition-all"
+        class="flex flex-col items-center gap-2 p-4 rounded-lg border transition-all select-none"
         :class="[
           p.isSpeaking
             ? 'border-green-500 bg-green-500/10'
             : 'border-surface-800 bg-surface-900',
+          isDeafened ? 'border-red-500/50 opacity-50' : '',
+          p.isLocallyMuted && !isDeafened ? 'opacity-60' : '',
         ]"
+        @contextmenu.prevent="openContextMenu($event, p)"
       >
         <!-- Avatar -->
         <div
-          class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
+          class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold relative"
           :class="[
             p.isMuted ? 'bg-surface-700 text-surface-400' : 'bg-primary-600 text-white',
           ]"
         >
           {{ p.name.charAt(0).toUpperCase() }}
+          <span
+            v-if="p.isLocallyMuted"
+            class="absolute -bottom-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs"
+          >🔇</span>
         </div>
 
         <!-- Nombre -->
@@ -101,6 +108,14 @@
         </button>
         <button
           class="px-6 py-3 rounded-full font-medium text-white transition-colors"
+          :class="isDeafened ? 'bg-red-600 hover:bg-red-700' : 'bg-surface-700 hover:bg-surface-600'"
+          @click="toggleDeafen"
+          title="Silencia altavoces y micrófono a la vez"
+        >
+          {{ isDeafened ? "🔇 Ensordecido" : "🔊 Oír" }}
+        </button>
+        <button
+          class="px-6 py-3 rounded-full font-medium text-white transition-colors"
           :class="isMonitoring ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-surface-700 hover:bg-surface-600'"
           @click="toggleMonitor"
           title="Escuchar tu propio micrófono (loopback)"
@@ -138,15 +153,28 @@
       @update-radio="onRadioChange"
       @reset-radio="resetRadio"
     />
+
+    <!-- Menú contextual de participante -->
+    <ParticipantContextMenu
+      :visible="contextMenu.visible"
+      :x="contextMenu.x"
+      :y="contextMenu.y"
+      :participant="contextMenu.participant"
+      @close="contextMenu.visible = false"
+      @volume-change="onParticipantVolumeChange"
+      @mute-participant="onParticipantMuteToggle"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { TokenResponse } from "@scpeak/shared";
+import type { Participant } from "~/composables/useLiveKit";
 import { Track } from "livekit-client";
 import { createWalkieTalkieProcessor } from "~/composables/useAudioEffects";
 import { useAudioSettings } from "~/composables/useAudioSettings";
 import AudioSettingsPanel from "~/components/AudioSettingsPanel.vue";
+import ParticipantContextMenu from "~/components/ParticipantContextMenu.vue";
 
 definePageMeta({
   middleware: "auth",
@@ -173,6 +201,10 @@ const {
   isEffectActive,
   setEffectProcessor,
   removeEffectProcessor,
+  toggleDeafen,
+  setParticipantVolume,
+  toggleParticipantMute,
+  isDeafened,
   error: lkError,
 } = useLiveKit();
 
@@ -190,6 +222,13 @@ const { settings: audioSettings, resetRadio, updateRadio } = useAudioSettings();
 
 const roomName = computed(() => (route.query.name as string) || "");
 const showSettings = ref(false);
+
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  participant: null as Participant | null,
+});
 
 // URL de LiveKit derivada del servidor API
 const livekitUrl = computed(() => {
@@ -319,12 +358,31 @@ function onMonitorVolumeChange(value: number) {
 
 function onRadioChange(patch: Partial<typeof audioSettings.value.radio>) {
   updateRadio(patch);
-  // Si el efecto está activo, recrearlo con los nuevos settings
   if (isEffectActive.value) {
     removeEffectProcessor().then(() => {
       const processor = createWalkieTalkieProcessor(audioSettings.value.radio);
       setEffectProcessor(processor);
     });
   }
+}
+
+// ── Context menu handlers ──
+
+function openContextMenu(e: MouseEvent, p: Participant) {
+  if (p.isLocal) return; // no mostrar menú para uno mismo
+  contextMenu.visible = true;
+  contextMenu.x = e.clientX;
+  contextMenu.y = e.clientY;
+  contextMenu.participant = p;
+}
+
+function onParticipantVolumeChange(identity: string, volume: number) {
+  setParticipantVolume(identity, volume);
+}
+
+function onParticipantMuteToggle() {
+  if (!contextMenu.participant) return;
+  toggleParticipantMute(contextMenu.participant.identity);
+  contextMenu.visible = false;
 }
 </script>

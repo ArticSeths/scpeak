@@ -155,7 +155,12 @@ export function useLiveKit() {
       const r = new Room({
         adaptiveStream: true,
         dynacast: true,
-        audioCaptureDefaults: deviceId ? { deviceId } : undefined,
+        audioCaptureDefaults: {
+          ...(deviceId ? { deviceId } : {}),
+          noiseSuppression: true,
+          echoCancellation: true,
+          autoGainControl: true,
+        },
         webAudioMix: true,
       });
 

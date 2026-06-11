@@ -34,6 +34,8 @@ export function useLiveKit() {
   // Volumen y mute por participante remoto
   const participantVolumes = new Map<string, number>();
   const participantMuted = new Set<string>();
+  // Referencias a los elementos <audio> por participante
+  const participantAudioEls = new Map<string, HTMLMediaElement[]>();
 
   // Monitor: loopback local (micrófono → altavoces, sin pasar por LiveKit)
   let monitorCtx: AudioContext | null = null;
@@ -169,15 +171,28 @@ export function useLiveKit() {
 
       r.on(RoomEvent.ParticipantConnected, updateParticipants);
       r.on(RoomEvent.ParticipantDisconnected, updateParticipants);
-      r.on(RoomEvent.TrackSubscribed, (track) => {
+      r.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach();
-          el.id = `remote-audio-${track.sid}`;
+          const id = `remote-audio-${track.sid}`;
+          el.id = id;
           // Forzar reproducción en WebView2 (Tauri) que bloquea autoplay
           el.muted = false;
           el.autoplay = true;
           el.play().catch(() => {});
           document.body.appendChild(el);
+
+          // Guardar referencia y aplicar volumen actual
+          const identity = participant.identity;
+          const els = participantAudioEls.get(identity) || [];
+          els.push(el);
+          participantAudioEls.set(identity, els);
+
+          // Aplicar volumen guardado o deafen
+          const vol = isDeafened.value ? 0
+            : participantMuted.has(identity) ? 0
+            : participantVolumes.get(identity) ?? 1.0;
+          el.volume = Math.max(0, Math.min(2, vol));
         }
         updateParticipants();
       });
@@ -357,26 +372,23 @@ export function useLiveKit() {
   }
 
   function applyDeafenVolumes() {
-    if (!room.value) return;
-    for (const [, pub] of getRemoteAudioPublications()) {
-      (pub as RemoteTrackPublication).setVolume?.(0);
+    for (const [, els] of participantAudioEls) {
+      for (const el of els) el.volume = 0;
     }
   }
 
   function restoreDeafenVolumes() {
-    if (!room.value) return;
-    for (const [identity, pub] of getRemoteAudioPublications()) {
-      const volume = participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0);
-      (pub as RemoteTrackPublication).setVolume?.(volume);
+    for (const [identity, els] of participantAudioEls) {
+      const vol = participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0);
+      for (const el of els) el.volume = Math.max(0, Math.min(2, vol));
     }
   }
 
   function setParticipantVolume(identity: string, volume: number) {
     participantVolumes.set(identity, volume);
-    if (room.value && !isDeafened.value && !participantMuted.has(identity)) {
-      const p = room.value.remoteParticipants.get(identity);
-      const pub = p?.audioTrackPublications.values().next().value;
-      (pub as RemoteTrackPublication).setVolume?.(volume);
+    if (!isDeafened.value && !participantMuted.has(identity)) {
+      const els = participantAudioEls.get(identity);
+      if (els) for (const el of els) el.volume = Math.max(0, Math.min(2, volume));
     }
     updateParticipants();
   }
@@ -387,11 +399,10 @@ export function useLiveKit() {
     } else {
       participantMuted.add(identity);
     }
-    if (room.value && !isDeafened.value) {
-      const p = room.value.remoteParticipants.get(identity);
-      const pub = p?.audioTrackPublications.values().next().value;
+    if (!isDeafened.value) {
+      const els = participantAudioEls.get(identity);
       const vol = participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0);
-      (pub as RemoteTrackPublication).setVolume?.(vol);
+      if (els) for (const el of els) el.volume = Math.max(0, Math.min(2, vol));
     }
     updateParticipants();
   }

@@ -359,18 +359,15 @@ export function useLiveKit() {
   function applyDeafenVolumes() {
     if (!room.value) return;
     for (const [, pub] of getRemoteAudioPublications()) {
-      pub.setVolume(0);
+      (pub as RemoteTrackPublication).setVolume?.(0);
     }
   }
 
   function restoreDeafenVolumes() {
     if (!room.value) return;
     for (const [identity, pub] of getRemoteAudioPublications()) {
-      if (participantMuted.has(identity)) {
-        pub.setVolume(0);
-      } else {
-        pub.setVolume(participantVolumes.get(identity) ?? 1.0);
-      }
+      const volume = participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0);
+      (pub as RemoteTrackPublication).setVolume?.(volume);
     }
   }
 
@@ -379,7 +376,7 @@ export function useLiveKit() {
     if (room.value && !isDeafened.value && !participantMuted.has(identity)) {
       const p = room.value.remoteParticipants.get(identity);
       const pub = p?.audioTrackPublications.values().next().value;
-      if (pub) pub.setVolume(volume);
+      (pub as RemoteTrackPublication).setVolume?.(volume);
     }
     updateParticipants();
   }
@@ -393,7 +390,8 @@ export function useLiveKit() {
     if (room.value && !isDeafened.value) {
       const p = room.value.remoteParticipants.get(identity);
       const pub = p?.audioTrackPublications.values().next().value;
-      if (pub) pub.setVolume(participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0));
+      const vol = participantMuted.has(identity) ? 0 : (participantVolumes.get(identity) ?? 1.0);
+      (pub as RemoteTrackPublication).setVolume?.(vol);
     }
     updateParticipants();
   }
@@ -403,7 +401,7 @@ export function useLiveKit() {
     if (!room.value) return;
     for (const p of room.value.remoteParticipants.values()) {
       for (const pub of p.audioTrackPublications.values()) {
-        yield [p.identity, pub];
+        yield [p.identity, pub as RemoteTrackPublication];
       }
     }
   }

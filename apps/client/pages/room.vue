@@ -156,6 +156,7 @@
 
     <!-- Menú contextual de participante -->
     <ParticipantContextMenu
+      v-if="contextMenu.participant"
       :visible="contextMenu.visible"
       :x="contextMenu.x"
       :y="contextMenu.y"

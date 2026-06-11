@@ -262,16 +262,35 @@ export function useLiveKit() {
   ) {
     if (!room.value) return;
 
+    // Guardar el procesador para aplicarlo cuando el track esté disponible
+    effectProcessor = processor;
+
+    // Si el usuario está muteado, activar el micrófono primero
+    if (isMuted.value) {
+      try {
+        await room.value.localParticipant.setMicrophoneEnabled(true);
+        isMuted.value = false;
+        startLocalSpeakingDetection();
+        updateParticipants();
+      } catch (err: any) {
+        error.value = err?.message || "Error al activar el micrófono para el efecto";
+        console.error("setEffectProcessor: error al desmutear:", err);
+        effectProcessor = null;
+        return;
+      }
+    }
+
     // Obtener la publicación de audio del participante local
     const pub = room.value.localParticipant.getTrackPublication(Track.Source.Microphone);
     const track = pub?.track as LocalAudioTrack | undefined;
     if (!track) {
       console.error("No se encontró el track de micrófono nativo");
+      error.value = "No se pudo acceder al micrófono. Revisa los permisos del navegador.";
+      effectProcessor = null;
       return;
     }
 
     await (track as any).setProcessor?.(processor);
-    effectProcessor = processor;
     isEffectActive.value = true;
   }
 

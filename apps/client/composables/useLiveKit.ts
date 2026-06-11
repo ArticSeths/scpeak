@@ -355,13 +355,13 @@ export function useLiveKit() {
   }
 
   return {
-    room: readonly(room),
-    participants: readonly(participants),
-    isConnected: readonly(isConnected),
-    isMuted: readonly(isMuted),
-    isMonitoring: readonly(isMonitoring),
-    isEffectActive: readonly(isEffectActive),
-    error: readonly(error),
+    room,
+    participants,
+    isConnected,
+    isMuted,
+    isMonitoring,
+    isEffectActive,
+    error,
     connect,
     disconnect,
     toggleMute,

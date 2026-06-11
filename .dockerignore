@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.output/
+.nuxt/
+
+# Tauri
+src-tauri/target/
+
+# Environment
+.env
+.env.local
+.env.prod
+
+# IDE
+.vscode/
+.idea/
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Drizzle
+drizzle/meta/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+
+# Docs (no needed in image)
+*.md
+!README.md
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Tests
+**/__tests__/
+**/*.test.*
+**/*.spec.*
+vitest.config.*
+
+# Lock files (pnpm-lock.yaml needed for install)
+# pnpm-lock.yaml is copied explicitly in Dockerfile

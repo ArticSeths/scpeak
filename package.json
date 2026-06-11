@@ -10,10 +10,21 @@
     "dev": "pnpm dev:infra && concurrently -n server,client -c blue,green \"pnpm dev:server\" \"pnpm dev:client\"",
     "tauri:dev": "pnpm --filter @scpeak/client tauri dev",
     "db:push": "pnpm --filter @scpeak/server db:push",
-    "db:generate": "pnpm --filter @scpeak/server db:generate"
+    "db:generate": "pnpm --filter @scpeak/server db:generate",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
+    "@eslint/js": "^9.15.0",
     "concurrently": "^9.1.2",
-    "typescript": "^5.8.3"
+    "eslint": "^9.15.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.17.0",
+    "vitest": "^2.1.8"
   }
 }

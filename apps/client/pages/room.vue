@@ -107,6 +107,14 @@
         >
           {{ isMonitoring ? "🔊 Monitor ON" : "🎧 Monitor" }}
         </button>
+        <button
+          class="px-6 py-3 rounded-full font-medium text-white transition-colors"
+          :class="isEffectActive ? 'bg-amber-600 hover:bg-amber-700' : 'bg-surface-700 hover:bg-surface-600'"
+          @click="toggleEffects"
+          title="Filtro walkie-talkie / radio"
+        >
+          {{ isEffectActive ? "📻 Radio ON" : "📻 Radio" }}
+        </button>
         </div>
       </div>
     </div>
@@ -115,6 +123,7 @@
 
 <script setup lang="ts">
 import type { TokenResponse } from "@scpeak/shared";
+import { createWalkieTalkieProcessor } from "~/composables/useAudioEffects";
 
 definePageMeta({
   middleware: "auth",
@@ -136,6 +145,9 @@ const {
   isConnected: isLkConnected,
   isMuted,
   isMonitoring,
+  isEffectActive,
+  setEffectProcessor,
+  removeEffectProcessor,
   error: lkError,
 } = useLiveKit();
 
@@ -188,12 +200,24 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  removeEffectProcessor();
   disconnect();
 });
 
 function leaveRoom() {
+  removeEffectProcessor();
   disconnect();
   router.push("/rooms");
+}
+
+async function toggleEffects() {
+  if (isEffectActive.value) {
+    await removeEffectProcessor();
+    return;
+  }
+
+  const processor = createWalkieTalkieProcessor();
+  await setEffectProcessor(processor);
 }
 
 async function toggleMonitor() {

@@ -2,9 +2,12 @@ import {
   Room,
   RoomEvent,
   Track,
+  createAudioAnalyser,
+  LocalAudioTrack,
   type RemoteParticipant,
-  type RemoteTrackPublication,
   type LocalParticipant,
+  type TrackProcessor,
+  type AudioProcessorOptions,
 } from "livekit-client";
 
 interface Participant {
@@ -21,21 +24,85 @@ export function useLiveKit() {
   const isConnected = ref(false);
   const isMuted = ref(true);
   const isMonitoring = ref(false);
+  const isEffectActive = ref(false);
   const error = ref("");
 
   // Monitor: segunda conexión Room que recibe tu audio desde el servidor
   let monitorRoom: Room | null = null;
+
+  // Procesador de efectos (walkie-talkie) conectado al track nativo
+  let effectProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
+
+  // Detección local de voz (sin latencia de red)
+  const localSpeaking = ref(false);
+  let analyserCleanup: (() => Promise<void>) | null = null;
+  let speakingRafId = 0;
+
+  function startLocalSpeakingDetection() {
+    if (!room.value) return;
+
+    const pub = room.value.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const track = pub?.track;
+    if (!track) return;
+
+    const { calculateVolume, cleanup } = createAudioAnalyser(track as LocalAudioTrack, {
+      cloneTrack: true,
+      smoothingTimeConstant: 0.2,
+      fftSize: 256,
+    });
+    analyserCleanup = cleanup;
+
+    const threshold = -30; // dB — solo voz, ignora ruido de fondo
+    let quietFrames = 0;
+    const releaseFrames = 15; // ~250 ms a 60 fps
+
+    function loop() {
+      const volume = calculateVolume();
+      const aboveThreshold = volume > threshold;
+
+      if (aboveThreshold) {
+        quietFrames = 0;
+        if (!localSpeaking.value) {
+          localSpeaking.value = true;
+          updateParticipants();
+        }
+      } else {
+        quietFrames++;
+        if (localSpeaking.value && quietFrames >= releaseFrames) {
+          localSpeaking.value = false;
+          updateParticipants();
+        }
+      }
+
+      speakingRafId = requestAnimationFrame(loop);
+    }
+    speakingRafId = requestAnimationFrame(loop);
+  }
+
+  function stopLocalSpeakingDetection() {
+    if (speakingRafId) {
+      cancelAnimationFrame(speakingRafId);
+      speakingRafId = 0;
+    }
+    if (analyserCleanup) {
+      analyserCleanup();
+      analyserCleanup = null;
+    }
+    localSpeaking.value = false;
+  }
 
   function mapParticipant(
     p: RemoteParticipant | LocalParticipant,
     isLocal: boolean
   ): Participant {
     const audioTrack = p.audioTrackPublications.values().next().value;
+    const isMuted = audioTrack ? audioTrack.isMuted : true;
     return {
       identity: p.identity,
       name: p.name || p.identity,
-      isSpeaking: p.isSpeaking,
-      isMuted: audioTrack ? audioTrack.isMuted : true,
+      // Detección local instantánea (sin latencia), pero no mostrar si está muteado
+      isSpeaking: isLocal ? (localSpeaking.value && !isMuted) : p.isSpeaking,
+      isMuted,
       isLocal,
     };
   }
@@ -89,6 +156,7 @@ export function useLiveKit() {
       isMuted.value = true;
 
       updateParticipants();
+      startLocalSpeakingDetection();
     } catch (err: any) {
       error.value = err?.message || "Error al conectar con LiveKit";
       console.error("LiveKit connect error:", err);
@@ -165,8 +233,44 @@ export function useLiveKit() {
     }
   }
 
+  async function setEffectProcessor(
+    processor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>
+  ) {
+    if (!room.value) return;
+
+    // Obtener la publicación de audio del participante local
+    const pub = room.value.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const track = pub?.track as LocalAudioTrack | undefined;
+    if (!track) {
+      console.error("No se encontró el track de micrófono nativo");
+      return;
+    }
+
+    await (track as any).setProcessor?.(processor);
+    effectProcessor = processor;
+    isEffectActive.value = true;
+  }
+
+  async function removeEffectProcessor() {
+    if (!room.value || !effectProcessor) return;
+
+    const pub = room.value.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const track = pub?.track as LocalAudioTrack | undefined;
+    if (track) {
+      await (track as any).stopProcessor?.();
+    }
+
+    effectProcessor = null;
+    isEffectActive.value = false;
+  }
+
   async function disconnect() {
     await stopMonitor();
+    stopLocalSpeakingDetection();
+    // Limpiar procesador de efectos si existe
+    if (effectProcessor) {
+      await removeEffectProcessor();
+    }
     if (room.value) {
       await room.value.disconnect();
       room.value = null;
@@ -181,12 +285,15 @@ export function useLiveKit() {
     isConnected: readonly(isConnected),
     isMuted: readonly(isMuted),
     isMonitoring: readonly(isMonitoring),
+    isEffectActive: readonly(isEffectActive),
     error: readonly(error),
     connect,
     disconnect,
     toggleMute,
     switchInput,
     switchOutput,
+    setEffectProcessor,
+    removeEffectProcessor,
     startMonitor,
     stopMonitor,
   };

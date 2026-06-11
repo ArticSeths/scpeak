@@ -4,15 +4,16 @@
  * Devuelve un TrackProcessor compatible con livekit-client para aplicar
  * efectos sobre el track de micrófono nativo sin romper isSpeaking/isMuted.
  *
- * Cadena (realista):
- *   Mic → Pre-Gain → Band-Pass (300–3000 Hz) → Soft Clipper →
+ * Cadena (realista, configurable):
+ *   Mic → Pre-Gain → Band-Pass → Soft Clipper →
  *   Compressor → Noise Gate → Speaker Sim → Makeup Gain → LiveKit
  */
 import { Track, type TrackProcessor, type AudioProcessorOptions } from "livekit-client";
+import type { RadioSettings } from "./useAudioSettings";
 
 /**
  * Curva de soft-clipping estilo "overdrive analógico suave".
- * amount: 0 = lineal, 100 = saturación fuerte (recomendado 20-40 para radio).
+ * amount: 0 = lineal, 100 = saturación fuerte.
  */
 function makeDistortionCurve(amount: number): Float32Array {
   const samples = 44100;
@@ -25,7 +26,9 @@ function makeDistortionCurve(amount: number): Float32Array {
   return curve;
 }
 
-export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> {
+export function createWalkieTalkieProcessor(
+  settings: RadioSettings,
+): TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> {
   let sourceNode: MediaStreamAudioSourceNode | null = null;
   let destNode: MediaStreamAudioDestinationNode | null = null;
   let preGain: GainNode | null = null;
@@ -58,39 +61,39 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       preGain = audioContext.createGain();
       preGain.gain.value = 1.2; // +1.5 dB, suficiente para la cadena sin realzar ruido
 
-      // ── 2. Band-Pass 300–3000 Hz (rango real de walkie-talkie) ──
+      // ── 2. Band-Pass configurable ──
       lowCut = audioContext.createBiquadFilter();
       lowCut.type = "highpass";
-      lowCut.frequency.value = 300;
+      lowCut.frequency.value = settings.bandLow;
       lowCut.Q.value = 0.6;
 
       highCut = audioContext.createBiquadFilter();
       highCut.type = "lowpass";
-      highCut.frequency.value = 3000;
+      highCut.frequency.value = settings.bandHigh;
       highCut.Q.value = 0.6;
 
-      // ── 3. Soft-Clipper: saturación analógica ligera ──
+      // ── 3. Soft-Clipper configurable ──
       waveshaper = audioContext.createWaveShaper();
-      (waveshaper as any).curve = new Float32Array(makeDistortionCurve(25));
+      (waveshaper as any).curve = new Float32Array(makeDistortionCurve(settings.distortion));
       waveshaper.oversample = "2x";
 
-      // ── 4. Compressor: AGC de radio ──
+      // ── 4. Compressor configurable ──
       compressor = audioContext.createDynamicsCompressor();
-      compressor.threshold.value = -36;
+      compressor.threshold.value = settings.threshold;
       compressor.knee.value = 30;
-      compressor.ratio.value = 12;
+      compressor.ratio.value = settings.ratio;
       compressor.attack.value = 0.003;
       compressor.release.value = 0.15;
 
-      // ── 5. Noise Gate real ──
+      // ── 5. Noise Gate configurable ──
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.3;
 
       gateGain = audioContext.createGain();
-      gateGain.gain.value = 0; // empieza cerrado, se abre al hablar
+      gateGain.gain.value = 0;
 
-      const gateThreshold = -55; // dB — por debajo de esto se considera silencio
+      const gateThreshold = settings.gateThreshold;
       const gateOpenTime = 0.02; // segundos para abrir (ataque rápido)
       const gateCloseTime = 0.3; // segundos para cerrar (release lento, evita cortes)
       const bufferLength = analyser.frequencyBinCount;
@@ -114,11 +117,11 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
         gateGain.gain.setTargetAtTime(targetGain, now, rampTime / 3);
       }, 30); // ~33 fps
 
-      // ── 6. Speaker Sim: altavoz pequeño de radio ──
+      // ── 6. Speaker Sim configurable ──
       speakerPeak = audioContext.createBiquadFilter();
       speakerPeak.type = "peaking";
       speakerPeak.frequency.value = 1500;
-      speakerPeak.gain.value = 2; // +2 dB (reducido de +4)
+      speakerPeak.gain.value = settings.speakerResonance;
       speakerPeak.Q.value = 1.5;
 
       speakerNotch = audioContext.createBiquadFilter();
@@ -127,9 +130,9 @@ export function createWalkieTalkieProcessor(): TrackProcessor<Track.Kind.Audio, 
       speakerNotch.gain.value = -8;
       speakerNotch.Q.value = 0.8;
 
-      // ── 7. Makeup Gain: nivel final controlado ──
+      // ── 7. Makeup Gain configurable ──
       makeupGain = audioContext.createGain();
-      makeupGain.gain.value = 0.7; // −3 dB
+      makeupGain.gain.value = settings.outputGain;
 
       // ── Destino ──
       destNode = audioContext.createMediaStreamDestination();

@@ -115,15 +115,38 @@
         >
           {{ isEffectActive ? "📻 Radio ON" : "📻 Radio" }}
         </button>
+        <button
+          class="px-6 py-3 rounded-full font-medium text-white transition-colors bg-surface-700 hover:bg-surface-600"
+          @click="showSettings = true"
+          title="Configuración de audio"
+        >
+          ⚙️
+        </button>
         </div>
       </div>
     </div>
+
+    <!-- Panel de configuración -->
+    <AudioSettingsPanel
+      :open="showSettings"
+      :settings="audioSettings"
+      @close="showSettings = false"
+      @update:noise-suppression="onNoiseSuppressionChange"
+      @update:echo-cancellation="onEchoCancellationChange"
+      @update:auto-gain-control="onAutoGainChange"
+      @update:monitor-volume="onMonitorVolumeChange"
+      @update-radio="onRadioChange"
+      @reset-radio="resetRadio"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { TokenResponse } from "@scpeak/shared";
+import { Track } from "livekit-client";
 import { createWalkieTalkieProcessor } from "~/composables/useAudioEffects";
+import { useAudioSettings } from "~/composables/useAudioSettings";
+import AudioSettingsPanel from "~/components/AudioSettingsPanel.vue";
 
 definePageMeta({
   middleware: "auth",
@@ -142,6 +165,7 @@ const {
   startMonitor,
   stopMonitor,
   participants,
+  room,
   isConnected: isLkConnected,
   isMuted,
   isMonitoring,
@@ -161,7 +185,10 @@ const {
   setOutput,
 } = useAudioDevices();
 
+const { settings: audioSettings, resetRadio, updateRadio } = useAudioSettings();
+
 const roomName = computed(() => (route.query.name as string) || "");
+const showSettings = ref(false);
 
 // URL de LiveKit derivada del servidor API
 const livekitUrl = computed(() => {
@@ -216,7 +243,7 @@ async function toggleEffects() {
     return;
   }
 
-  const processor = createWalkieTalkieProcessor();
+  const processor = createWalkieTalkieProcessor(audioSettings.value.radio);
   await setEffectProcessor(processor);
 }
 
@@ -247,5 +274,65 @@ async function onInputChange(deviceId: string) {
 async function onOutputChange(deviceId: string) {
   setOutput(deviceId);
   await switchOutput(deviceId);
+}
+
+// ── Settings handlers ──
+
+function onNoiseSuppressionChange(value: boolean) {
+  audioSettings.value.noiseSuppression = value;
+  // Requiere reconexión del micrófono — reiniciar track
+  if (room.value) {
+    room.value.localParticipant
+      .getTrackPublication(Track.Source.Microphone)
+      ?.track?.restartTrack({
+        noiseSuppression: value,
+        echoCancellation: audioSettings.value.echoCancellation,
+        autoGainControl: audioSettings.value.autoGainControl,
+      })
+      .catch((err: any) => console.warn("Error al reiniciar track:", err));
+  }
+}
+
+function onEchoCancellationChange(value: boolean) {
+  audioSettings.value.echoCancellation = value;
+  if (room.value) {
+    room.value.localParticipant
+      .getTrackPublication(Track.Source.Microphone)
+      ?.track?.restartTrack({
+        noiseSuppression: audioSettings.value.noiseSuppression,
+        echoCancellation: value,
+        autoGainControl: audioSettings.value.autoGainControl,
+      })
+      .catch((err: any) => console.warn("Error al reiniciar track:", err));
+  }
+}
+
+function onAutoGainChange(value: boolean) {
+  audioSettings.value.autoGainControl = value;
+  if (room.value) {
+    room.value.localParticipant
+      .getTrackPublication(Track.Source.Microphone)
+      ?.track?.restartTrack({
+        noiseSuppression: audioSettings.value.noiseSuppression,
+        echoCancellation: audioSettings.value.echoCancellation,
+        autoGainControl: value,
+      })
+      .catch((err: any) => console.warn("Error al reiniciar track:", err));
+  }
+}
+
+function onMonitorVolumeChange(value: number) {
+  audioSettings.value.monitorVolume = value;
+}
+
+function onRadioChange(patch: Partial<typeof audioSettings.value.radio>) {
+  updateRadio(patch);
+  // Si el efecto está activo, recrearlo con los nuevos settings
+  if (isEffectActive.value) {
+    removeEffectProcessor().then(() => {
+      const processor = createWalkieTalkieProcessor(audioSettings.value.radio);
+      setEffectProcessor(processor);
+    });
+  }
 }
 </script>

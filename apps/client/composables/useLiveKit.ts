@@ -38,6 +38,15 @@ export function useLiveKit() {
   let analyserCleanup: (() => Promise<void>) | null = null;
   let speakingRafId = 0;
 
+  /** Reanuda todos los AudioContext suspendidos (necesario en WebView2/Tauri) */
+  function resumeAudioContexts() {
+    // @ts-expect-error: AudioContext might not be in TS lib
+    const ctxs = (window as any).__livekit_audio_contexts || [];
+    for (const ctx of ctxs) {
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    }
+  }
+
   function startLocalSpeakingDetection() {
     if (!room.value) return;
 
@@ -156,6 +165,10 @@ export function useLiveKit() {
         if (track.kind === Track.Kind.Audio) {
           const el = track.attach();
           el.id = `remote-audio-${track.sid}`;
+          // Forzar reproducción en WebView2 (Tauri) que bloquea autoplay
+          el.muted = false;
+          el.autoplay = true;
+          el.play().catch(() => {});
           document.body.appendChild(el);
         }
         updateParticipants();
@@ -248,6 +261,9 @@ export function useLiveKit() {
           if (track.kind === Track.Kind.Audio) {
             const el = track.attach();
             el.id = `monitor-audio-${track.sid}`;
+            el.muted = false;
+            el.autoplay = true;
+            el.play().catch(() => {});
             document.body.appendChild(el);
           }
         }

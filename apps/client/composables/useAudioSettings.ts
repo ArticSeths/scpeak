@@ -2,7 +2,6 @@
  * useAudioSettings — Estado reactivo de configuración de audio.
  * Persiste en localStorage automáticamente.
  */
-import type { AudioProcessorOptions } from "livekit-client";
 
 export interface RadioSettings {
   bandLow: number; // Hz (100–500)
@@ -72,12 +71,6 @@ export function useAudioSettings() {
 
   watch(settings, (s) => save(s), { deep: true });
 
-  const requiresMicRestart = computed(() => {
-    // Si el usuario cambió noiseSuppression, echoCancellation o autoGainControl,
-    // debe reconectar el micrófono. Se indica con un flag.
-    return true; // simplificado: siempre requiere reinicio
-  });
-
   function resetRadio() {
     settings.value.radio = { ...DEFAULT_RADIO };
   }
@@ -90,6 +83,5 @@ export function useAudioSettings() {
     settings,
     resetRadio,
     updateRadio,
-    requiresMicRestart,
   };
 }

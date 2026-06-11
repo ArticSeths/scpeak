@@ -41,15 +41,6 @@ export function useLiveKit() {
   let analyserCleanup: (() => Promise<void>) | null = null;
   let speakingRafId = 0;
 
-  /** Reanuda todos los AudioContext suspendidos (necesario en WebView2/Tauri) */
-  function resumeAudioContexts() {
-    // @ts-expect-error: AudioContext might not be in TS lib
-    const ctxs = (window as any).__livekit_audio_contexts || [];
-    for (const ctx of ctxs) {
-      if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    }
-  }
-
   function startLocalSpeakingDetection() {
     if (!room.value) return;
 

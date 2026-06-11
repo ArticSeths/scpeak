@@ -147,6 +147,7 @@ export function useLiveKit() {
         adaptiveStream: true,
         dynacast: true,
         audioCaptureDefaults: deviceId ? { deviceId } : undefined,
+        webAudioMix: true,
       });
 
       r.on(RoomEvent.ParticipantConnected, updateParticipants);
@@ -228,7 +229,7 @@ export function useLiveKit() {
     }
 
     try {
-      monitorRoom = new Room({ adaptiveStream: true, dynacast: true });
+      monitorRoom = new Room({ adaptiveStream: true, dynacast: true, webAudioMix: true });
 
       // Adjuntar audio de tracks remotos para que suene
       monitorRoom.on(

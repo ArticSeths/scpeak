@@ -200,6 +200,22 @@ export function useLiveKit() {
     }
   }
 
+  /** Activa el micrófono si está muteado. Retorna false si falla. */
+  async function ensureUnmuted(): Promise<boolean> {
+    if (!room.value || !isMuted.value) return true;
+    try {
+      await room.value.localParticipant.setMicrophoneEnabled(true);
+      isMuted.value = false;
+      startLocalSpeakingDetection();
+      updateParticipants();
+      return true;
+    } catch (err: any) {
+      error.value = err?.message || "Error al activar el micrófono";
+      console.error("ensureUnmuted error:", err);
+      return false;
+    }
+  }
+
   async function toggleMute() {
     if (!room.value) return;
     const newMuted = !isMuted.value;
@@ -278,34 +294,20 @@ export function useLiveKit() {
   }
 
   async function setEffectProcessor(
-    processor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>
+    processor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>,
   ) {
     if (!room.value) return;
-
-    // Guardar el procesador para aplicarlo cuando el track esté disponible
     effectProcessor = processor;
 
-    // Si el usuario está muteado, activar el micrófono primero
-    if (isMuted.value) {
-      try {
-        await room.value.localParticipant.setMicrophoneEnabled(true);
-        isMuted.value = false;
-        startLocalSpeakingDetection();
-        updateParticipants();
-      } catch (err: any) {
-        error.value = err?.message || "Error al activar el micrófono para el efecto";
-        console.error("setEffectProcessor: error al desmutear:", err);
-        effectProcessor = null;
-        return;
-      }
+    if (!(await ensureUnmuted())) {
+      effectProcessor = null;
+      return;
     }
 
-    // Obtener la publicación de audio del participante local
     const pub = room.value.localParticipant.getTrackPublication(Track.Source.Microphone);
     const track = pub?.track as LocalAudioTrack | undefined;
     if (!track) {
-      console.error("No se encontró el track de micrófono nativo");
-      error.value = "No se pudo acceder al micrófono. Revisa los permisos del navegador.";
+      error.value = "No se pudo acceder al micrófono";
       effectProcessor = null;
       return;
     }

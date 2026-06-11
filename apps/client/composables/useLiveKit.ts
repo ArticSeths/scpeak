@@ -152,8 +152,18 @@ export function useLiveKit() {
 
       r.on(RoomEvent.ParticipantConnected, updateParticipants);
       r.on(RoomEvent.ParticipantDisconnected, updateParticipants);
-      r.on(RoomEvent.TrackSubscribed, updateParticipants);
-      r.on(RoomEvent.TrackUnsubscribed, updateParticipants);
+      r.on(RoomEvent.TrackSubscribed, (track) => {
+        if (track.kind === Track.Kind.Audio) {
+          const el = track.attach();
+          el.id = `remote-audio-${track.sid}`;
+          document.body.appendChild(el);
+        }
+        updateParticipants();
+      });
+      r.on(RoomEvent.TrackUnsubscribed, (track) => {
+        track.detach().forEach((el) => el.remove());
+        updateParticipants();
+      });
       r.on(RoomEvent.TrackMuted, updateParticipants);
       r.on(RoomEvent.TrackUnmuted, updateParticipants);
       r.on(RoomEvent.ActiveSpeakersChanged, updateParticipants);

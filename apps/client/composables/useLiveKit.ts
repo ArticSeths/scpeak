@@ -167,14 +167,10 @@ export function useLiveKit() {
 
       room.value = r;
       isConnected.value = true;
-
-      // Publicar micrófono muteado por defecto
-      await r.localParticipant.setMicrophoneEnabled(true);
-      await r.localParticipant.setMicrophoneEnabled(false);
       isMuted.value = true;
+      error.value = "";
 
       updateParticipants();
-      startLocalSpeakingDetection();
     } catch (err: any) {
       error.value = err?.message || "Error al conectar con LiveKit";
       console.error("LiveKit connect error:", err);
@@ -184,9 +180,19 @@ export function useLiveKit() {
   async function toggleMute() {
     if (!room.value) return;
     const newMuted = !isMuted.value;
-    await room.value.localParticipant.setMicrophoneEnabled(!newMuted);
-    isMuted.value = newMuted;
-    updateParticipants();
+    try {
+      await room.value.localParticipant.setMicrophoneEnabled(!newMuted);
+      isMuted.value = newMuted;
+      if (!newMuted) {
+        startLocalSpeakingDetection();
+      } else {
+        stopLocalSpeakingDetection();
+      }
+      updateParticipants();
+    } catch (err: any) {
+      error.value = err?.message || "Error al activar el micrófono";
+      console.error("toggleMute error:", err);
+    }
   }
 
   async function switchInput(deviceId: string) {

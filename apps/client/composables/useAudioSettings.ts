@@ -87,7 +87,7 @@ export function useAudioSettings() {
   }
 
   return {
-    settings: readonly(settings),
+    settings,
     resetRadio,
     updateRadio,
     requiresMicRestart,

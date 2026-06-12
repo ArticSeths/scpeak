@@ -35,12 +35,17 @@ router.post("/register", async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+    // Primer usuario del sistema → admin automático
+    const userCount = await db.$count(users);
+    const role = userCount === 0 ? "admin" : "user";
+
     const [user] = await db
       .insert(users)
-      .values({ username, passwordHash })
-      .returning({ id: users.id, username: users.username });
+      .values({ username, passwordHash, role })
+      .returning({ id: users.id, username: users.username, role: users.role });
 
-    const payload: AuthPayload = { userId: user.id, username: user.username };
+    const payload: AuthPayload = { userId: user.id, username: user.username, role: user.role };
     const token = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: "7d" });
 
     res.status(201).json({ token, user: payload });
@@ -74,7 +79,7 @@ router.post("/login", async (req, res) => {
       return;
     }
 
-    const payload: AuthPayload = { userId: user.id, username: user.username };
+    const payload: AuthPayload = { userId: user.id, username: user.username, role: user.role };
     const token = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: "7d" });
 
     res.json({ token, user: payload });

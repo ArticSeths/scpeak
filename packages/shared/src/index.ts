@@ -17,6 +17,7 @@ export interface Room {
 export interface AuthPayload {
   userId: string;
   username: string;
+  role: string;
 }
 
 export interface LoginRequest {

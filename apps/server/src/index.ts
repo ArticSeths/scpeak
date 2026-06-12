@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import authRouter from "./routes/auth.js";
 import roomsRouter from "./routes/rooms.js";
+import adminRouter from "./routes/admin.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use("/auth", authRouter);
 app.use("/rooms", roomsRouter);
+app.use("/admin", adminRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });

@@ -15,6 +15,8 @@ export function useAuth() {
   const router = useRouter();
 
   const isAuthenticated = computed(() => !!state.value.token);
+  const isAdmin = computed(() => state.value.user?.role === "admin");
+  const isModerator = computed(() => isAdmin.value || state.value.user?.role === "moderator");
 
   function setAuth(token: string, user: AuthPayload) {
     state.value = { token, user };
@@ -69,6 +71,8 @@ export function useAuth() {
   return {
     state: readonly(state),
     isAuthenticated,
+    isAdmin,
+    isModerator,
     token: computed(() => state.value.token),
     user: computed(() => state.value.user),
     login,

@@ -9,32 +9,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        surface: {
-          50: "#f8fafc",
-          100: "#f1f5f9",
-          200: "#e2e8f0",
-          300: "#cbd5e1",
-          400: "#94a3b8",
-          500: "#64748b",
-          600: "#475569",
-          700: "#334155",
-          800: "#1e293b",
-          900: "#0f172a",
-          950: "#020617",
+        bg: {
+          DEFAULT: "#000000",
+          secondary: "#080808",
+          elevated: "#0f0f0f",
+          card: "#141414",
         },
-        primary: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
-          950: "#1e1b4b",
+        text: {
+          DEFAULT: "#fafafa",
+          secondary: "#a3a3a3",
+          muted: "#737373",
+          dim: "#525252",
         },
+        border: {
+          DEFAULT: "#262626",
+          subtle: "#1a1a1a",
+          hover: "#404040",
+        },
+        accent: "#fafafa",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

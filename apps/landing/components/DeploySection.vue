@@ -1,34 +1,34 @@
 <template>
-  <section id="deploy" class="py-20 px-4 bg-surface-900/30">
+  <section id="deploy" class="py-20 px-4 bg-bg-secondary">
     <div class="max-w-3xl mx-auto">
-      <p class="text-xs tracking-[0.2em] text-primary-400 uppercase mb-4">Self-Hosted</p>
+      <p class="text-xs tracking-[0.2em] text-accent/70 uppercase mb-4">Self-Hosted</p>
       <h2 class="text-3xl sm:text-4xl font-bold mb-4">Tu propio servidor en 1 minuto</h2>
-      <p class="text-surface-400 mb-12">Sin configuraciones complejas. Solo Docker y 4 puertos.</p>
+      <p class="text-text-secondary mb-12">Sin configuraciones complejas. Solo Docker y 4 puertos.</p>
 
       <div class="space-y-8">
         <div v-for="(step, i) in steps" :key="i" class="flex gap-5">
-          <div class="w-8 h-8 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-sm font-bold text-primary-400 shrink-0 mt-0.5">
+          <div class="w-8 h-8 rounded-lg bg-accent/5 border border-border flex items-center justify-center text-sm font-bold text-accent shrink-0 mt-0.5">
             {{ i + 1 }}
           </div>
           <div class="flex-1">
             <h3 class="font-semibold text-sm mb-2">{{ step.title }}</h3>
-            <pre class="p-4 rounded-lg bg-surface-900 border border-surface-800 text-sm overflow-x-auto font-mono text-surface-300"><code>{{ step.code }}</code></pre>
-            <p v-if="step.note" class="text-xs text-surface-600 mt-2">{{ step.note }}</p>
+            <pre class="p-4 rounded-lg bg-bg-card border border-border text-sm overflow-x-auto font-mono text-text-secondary"><code>{{ step.code }}</code></pre>
+            <p v-if="step.note" class="text-xs text-text-dim mt-2">{{ step.note }}</p>
           </div>
         </div>
       </div>
 
-      <div class="mt-10 pt-8 border-t border-surface-800">
-        <p class="text-xs text-surface-500">
-          Puertos necesarios: <span class="text-surface-300 font-mono">3001/tcp</span> (API) ·
-          <span class="text-surface-300 font-mono">7880/tcp</span> (señal) ·
-          <span class="text-surface-300 font-mono">7881/tcp</span> (fallback) ·
-          <span class="text-surface-300 font-mono">7882/udp</span> (voz)
+      <div class="mt-10 pt-8 border-t border-border">
+        <p class="text-xs text-text-muted">
+          Puertos necesarios: <span class="text-text-secondary font-mono">3001/tcp</span> (API) ·
+          <span class="text-text-secondary font-mono">7880/tcp</span> (señal) ·
+          <span class="text-text-secondary font-mono">7881/tcp</span> (fallback) ·
+          <span class="text-text-secondary font-mono">7882/udp</span> (voz)
         </p>
         <a
           href="https://github.com/ArticSeths/scpeak/blob/master/DEPLOY.md"
           target="_blank"
-          class="inline-block mt-4 text-sm text-primary-400 hover:underline"
+          class="inline-block mt-4 text-sm text-accent/70 hover:underline"
         >
           Guía completa de despliegue →
         </a>

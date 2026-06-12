@@ -1,20 +1,20 @@
 <template>
   <section id="features" class="py-20 px-4">
     <div class="max-w-6xl mx-auto">
-      <p class="text-xs tracking-[0.2em] text-primary-400 uppercase mb-4">Platform</p>
+      <p class="text-xs tracking-[0.2em] text-accent/70 uppercase mb-4">Platform</p>
       <h2 class="text-3xl sm:text-4xl font-bold mb-12">Todo lo que necesitas</h2>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-surface-800 rounded-xl overflow-hidden">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
         <div
           v-for="f in features"
           :key="f.title"
-          class="p-6 bg-surface-900 hover:bg-surface-800/80 transition-colors group"
+          class="p-6 bg-bg-elevated hover:bg-bg-card transition-colors group"
         >
-          <div class="w-10 h-10 rounded-lg bg-primary-500/10 flex items-center justify-center text-xl mb-4">
+          <div class="w-10 h-10 rounded-lg bg-accent/5 flex items-center justify-center text-xl mb-4">
             {{ f.icon }}
           </div>
           <h3 class="font-semibold mb-2">{{ f.title }}</h3>
-          <p class="text-sm text-surface-400 leading-relaxed">{{ f.description }}</p>
+          <p class="text-sm text-text-secondary leading-relaxed">{{ f.description }}</p>
         </div>
       </div>
     </div>

@@ -1,63 +1,56 @@
 <template>
-  <section class="pt-32 pb-20 px-4 text-center">
-    <div class="max-w-4xl mx-auto space-y-6">
-      <!-- Badges -->
-      <div class="flex justify-center gap-3 flex-wrap">
-        <a href="https://github.com/ArticSeths/scpeak/actions" target="_blank">
-          <img src="https://img.shields.io/github/actions/workflow/status/ArticSeths/scpeak/ci.yml?branch=master&label=CI&style=flat-square" alt="CI" />
-        </a>
-        <a href="https://github.com/ArticSeths/scpeak/releases" target="_blank">
-          <img src="https://img.shields.io/github/v/release/ArticSeths/scpeak?color=blue&style=flat-square" alt="Release" />
-        </a>
-        <a href="https://github.com/ArticSeths/scpeak/pkgs/container/scpeak-server" target="_blank">
-          <img src="https://img.shields.io/badge/docker-ghcr.io%2Fscpeak--server-2496ED?logo=docker&style=flat-square" alt="Docker" />
-        </a>
-        <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" />
-      </div>
+  <section class="pt-24 sm:pt-32 pb-16 px-4">
+    <div class="max-w-4xl mx-auto">
+      <!-- Label -->
+      <p class="text-xs tracking-[0.2em] text-primary-400 uppercase mb-6 text-center">
+        Voice Communication App
+      </p>
 
       <!-- Título -->
-      <h1 class="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight">
-        Comunicación por voz
-        <span class="block text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">
-          estilo Walkie-Talkie
-        </span>
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-center leading-[1.1]">
+        Comunícate con tu flota
+        <span class="block text-surface-500">como si llevaras un Walkie-Talkie</span>
       </h1>
 
-      <p class="text-lg sm:text-xl text-surface-400 max-w-2xl mx-auto">
-        App de escritorio nativa y ultraligera para Star Citizen. Efectos de voz realistas,
-        cancelación de ruido por IA, y despliegue self-hosted en 1 minuto.
+      <p class="text-base sm:text-lg text-surface-400 max-w-xl mx-auto mt-6 text-center leading-relaxed">
+        App de escritorio nativa, ultraligera. Efectos de voz realistas,
+        cancelación de ruido por IA, y despliegue self-hosted en un minuto.
+        Diseñada para Star Citizen.
       </p>
 
       <!-- CTAs -->
-      <div class="flex justify-center gap-3 pt-4">
+      <div class="flex justify-center gap-3 mt-8">
         <a
           href="#download"
-          class="px-8 py-3 rounded-full bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors shadow-lg shadow-primary-600/25"
+          class="px-6 py-2.5 rounded-lg bg-white text-black font-medium text-sm hover:bg-surface-200 transition-colors"
         >
-          📥 Descargar
+          Descargar app
         </a>
         <a
-          href="https://github.com/ArticSeths/scpeak"
-          target="_blank"
-          class="px-8 py-3 rounded-full border border-surface-600 hover:border-surface-400 text-surface-200 font-semibold transition-colors"
+          href="#deploy"
+          class="px-6 py-2.5 rounded-lg border border-surface-700 text-surface-300 font-medium text-sm hover:border-surface-500 hover:text-white transition-colors"
         >
-          ⭐ GitHub
+          Deploy server
         </a>
       </div>
 
-      <!-- Stats -->
-      <div class="flex justify-center gap-8 pt-8 text-sm text-surface-500">
+      <!-- Stats row -->
+      <div class="flex justify-center gap-6 sm:gap-10 mt-14 pt-10 border-t border-surface-800">
         <div class="text-center">
-          <p class="text-2xl font-bold text-white">{{ releaseVersion }}</p>
-          <p>Última versión</p>
+          <p class="text-xl sm:text-2xl font-bold text-white font-mono">{{ releaseVersion }}</p>
+          <p class="text-xs text-surface-500 mt-1">Última versión</p>
         </div>
         <div class="text-center">
-          <p class="text-2xl font-bold text-white">100+</p>
-          <p>Usuarios por sala</p>
+          <p class="text-xl sm:text-2xl font-bold text-white font-mono">100+</p>
+          <p class="text-xs text-surface-500 mt-1">Usuarios / sala</p>
         </div>
         <div class="text-center">
-          <p class="text-2xl font-bold text-white">5-10 MB</p>
-          <p>Tamaño app</p>
+          <p class="text-xl sm:text-2xl font-bold text-white font-mono">~8 MB</p>
+          <p class="text-xs text-surface-500 mt-1">Tamaño app</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl sm:text-2xl font-bold text-white font-mono">1 min</p>
+          <p class="text-xs text-surface-500 mt-1">Deploy</p>
         </div>
       </div>
     </div>

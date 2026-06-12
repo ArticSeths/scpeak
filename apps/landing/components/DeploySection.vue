@@ -1,65 +1,57 @@
 <template>
-  <section id="deploy" class="py-20 px-4">
+  <section id="deploy" class="py-20 px-4 bg-surface-900/30">
     <div class="max-w-3xl mx-auto">
-      <h2 class="text-3xl sm:text-4xl font-bold text-center mb-4">
-        Despliega tu propio servidor
-      </h2>
-      <p class="text-surface-400 text-center mb-10">
-        3 pasos. 1 minuto. Sin configuración compleja.
-      </p>
+      <p class="text-xs tracking-[0.2em] text-primary-400 uppercase mb-4">Self-Hosted</p>
+      <h2 class="text-3xl sm:text-4xl font-bold mb-4">Tu propio servidor en 1 minuto</h2>
+      <p class="text-surface-400 mb-12">Sin configuraciones complejas. Solo Docker y 4 puertos.</p>
 
-      <div class="space-y-6">
-        <!-- Paso 1 -->
-        <div class="flex gap-4">
-          <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold shrink-0 mt-1">
-            1
+      <div class="space-y-8">
+        <div v-for="(step, i) in steps" :key="i" class="flex gap-5">
+          <div class="w-8 h-8 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center text-sm font-bold text-primary-400 shrink-0 mt-0.5">
+            {{ i + 1 }}
           </div>
-          <div>
-            <h3 class="font-semibold mb-2">Clona el repositorio</h3>
-            <pre class="p-3 rounded-lg bg-surface-800 text-sm overflow-x-auto"><code>git clone https://github.com/ArticSeths/scpeak.git
-cd scpeak</code></pre>
-          </div>
-        </div>
-
-        <!-- Paso 2 -->
-        <div class="flex gap-4">
-          <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold shrink-0 mt-1">
-            2
-          </div>
-          <div>
-            <h3 class="font-semibold mb-2">Configura tu servidor</h3>
-            <pre class="p-3 rounded-lg bg-surface-800 text-sm overflow-x-auto"><code>cp .env.prod.example .env
-nano .env  # edita nombre, contraseña y secretos</code></pre>
-            <p class="text-xs text-surface-500 mt-1">
-              Usa <code class="text-surface-400">openssl rand -hex 32</code> para generar secretos seguros.
-            </p>
-          </div>
-        </div>
-
-        <!-- Paso 3 -->
-        <div class="flex gap-4">
-          <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-sm font-bold shrink-0 mt-1">
-            3
-          </div>
-          <div>
-            <h3 class="font-semibold mb-2">Levanta los servicios</h3>
-            <pre class="p-3 rounded-lg bg-surface-800 text-sm overflow-x-auto"><code>docker compose -f docker-compose.prod.yml up -d</code></pre>
-            <p class="text-xs text-surface-500 mt-1">
-              La imagen se descarga automáticamente de GHCR. Puertos necesarios: 3001/tcp, 7880/tcp, 7881/tcp, 7882/udp.
-            </p>
+          <div class="flex-1">
+            <h3 class="font-semibold text-sm mb-2">{{ step.title }}</h3>
+            <pre class="p-4 rounded-lg bg-surface-900 border border-surface-800 text-sm overflow-x-auto font-mono text-surface-300"><code>{{ step.code }}</code></pre>
+            <p v-if="step.note" class="text-xs text-surface-600 mt-2">{{ step.note }}</p>
           </div>
         </div>
       </div>
 
-      <div class="text-center mt-8">
+      <div class="mt-10 pt-8 border-t border-surface-800">
+        <p class="text-xs text-surface-500">
+          Puertos necesarios: <span class="text-surface-300 font-mono">3001/tcp</span> (API) ·
+          <span class="text-surface-300 font-mono">7880/tcp</span> (señal) ·
+          <span class="text-surface-300 font-mono">7881/tcp</span> (fallback) ·
+          <span class="text-surface-300 font-mono">7882/udp</span> (voz)
+        </p>
         <a
           href="https://github.com/ArticSeths/scpeak/blob/master/DEPLOY.md"
           target="_blank"
-          class="text-primary-400 hover:underline text-sm"
+          class="inline-block mt-4 text-sm text-primary-400 hover:underline"
         >
-          📖 Guía completa de despliegue →
+          Guía completa de despliegue →
         </a>
       </div>
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+const steps = [
+  {
+    title: "Clona el repositorio",
+    code: "git clone https://github.com/ArticSeths/scpeak.git\ncd scpeak",
+  },
+  {
+    title: "Configura las variables de entorno",
+    code: "cp .env.prod.example .env\n# edita el archivo con los secretos de tu servidor",
+    note: "Usa openssl rand -hex 32 para generar secretos seguros.",
+  },
+  {
+    title: "Levanta los servicios con Docker Compose",
+    code: "docker compose -f docker-compose.prod.yml up -d",
+    note: "La imagen se descarga automáticamente de GitHub Container Registry.",
+  },
+];
+</script>

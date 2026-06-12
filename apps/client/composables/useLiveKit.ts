@@ -5,7 +5,6 @@ import {
   createAudioAnalyser,
   LocalAudioTrack,
   type RemoteParticipant,
-  type RemoteTrackPublication,
   type LocalParticipant,
   type TrackProcessor,
   type AudioProcessorOptions,
@@ -408,14 +407,6 @@ export function useLiveKit() {
   }
 
   /** Itera publicaciones de audio remotas (identidad, publicación) */
-  function* getRemoteAudioPublications(): Generator<[string, RemoteTrackPublication]> {
-    if (!room.value) return;
-    for (const p of room.value.remoteParticipants.values()) {
-      for (const pub of p.audioTrackPublications.values()) {
-        yield [p.identity, pub as RemoteTrackPublication];
-      }
-    }
-  }
 
   async function disconnect() {
     stopMonitor();

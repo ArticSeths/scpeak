@@ -40,7 +40,7 @@ export function createWalkieTalkieProcessor(
   let speakerNotch: BiquadFilterNode | null = null;
   let makeupGain: GainNode | null = null;
 
-  // ── Noise Gate real ──
+  // -- Noise Gate real --
   let analyser: AnalyserNode | null = null;
   let gateGain: GainNode | null = null;
   let gateTimer: ReturnType<typeof setInterval> | null = null;
@@ -53,13 +53,13 @@ export function createWalkieTalkieProcessor(
     async init(opts: AudioProcessorOptions) {
       const { track, audioContext } = opts;
 
-      // ── Fuente ──
+      // -- Fuente --
       const sourceStream = new MediaStream([track]);
       sourceNode = audioContext.createMediaStreamSource(sourceStream);
 
       // ── 1. Pre-Gain: ligero, sin amplificar el ruido de fondo ──
       preGain = audioContext.createGain();
-      preGain.gain.value = 1.2; // +1.5 dB, suficiente para la cadena sin realzar ruido
+      preGain.gain.value = 1.2; // +1.5 dB, suficiente para la cadena sin realzar ruido
 
       // ── 2. Band-Pass configurable ──
       lowCut = audioContext.createBiquadFilter();

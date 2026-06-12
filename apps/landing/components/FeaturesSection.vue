@@ -1,0 +1,62 @@
+<template>
+  <section id="features" class="py-20 px-4 bg-surface-900/50">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center mb-12">
+        Todo lo que necesitas
+      </h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div
+          v-for="f in features"
+          :key="f.title"
+          class="p-6 rounded-xl border border-surface-800 bg-surface-900 hover:border-primary-500/30 transition-colors group"
+        >
+          <span class="text-3xl">{{ f.icon }}</span>
+          <h3 class="text-lg font-semibold mt-3 mb-2">{{ f.title }}</h3>
+          <p class="text-sm text-surface-400">{{ f.description }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+const features = [
+  {
+    icon: "📻",
+    title: "Efecto Walkie-Talkie",
+    description:
+      "Filtro pasa-banda, distorsión analógica y compresor que simulan una radio real. Configurable al detalle.",
+  },
+  {
+    icon: "🤖",
+    title: "Cancelación de ruido IA",
+    description:
+      "Supresión de ruido nativa del navegador (WebRTC AudioProcessing). Elimina ventiladores, teclados y calle.",
+  },
+  {
+    icon: "🐳",
+    title: "Self-Hosted en 1 minuto",
+    description:
+      "Despliega tu propio servidor con Docker Compose. PostgreSQL + Redis + LiveKit. Un solo comando.",
+  },
+  {
+    icon: "🪶",
+    title: "Ultraligera (5-10 MB)",
+    description:
+      "App nativa con Tauri 2. Consume el motor WebView del SO. Sin Electron, sin bloat.",
+  },
+  {
+    icon: "🔐",
+    title: "Cifrado y seguro",
+    description:
+      "JWT + tokens LiveKit de corta duración. Las API keys nunca se exponen al cliente. bcrypt + PostgreSQL.",
+  },
+  {
+    icon: "🔊",
+    title: "Puerto único UDP",
+    description:
+      "Toda la voz por un solo puerto UDP (7882). Sin NAT traversal, sin configurar firewalls complejos.",
+  },
+];
+</script>

@@ -23,8 +23,8 @@
     </header>
 
     <!-- Contenido -->
-    <main>
-      <slot />
+    <main class="pt-14">
+      <NuxtPage />
     </main>
 
     <!-- Footer -->
